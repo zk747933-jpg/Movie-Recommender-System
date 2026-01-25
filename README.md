@@ -1,2 +1,4 @@
-# Movie-Recommender-System
-A content-based Movie Recommender System built using Python and Scikit-learn that suggests similar movies based on cosine similarity. The system features an interactive Streamlit interface and integrates the TMDB API to display movie posters with recommendations.
+Movie Recommender System built using Python and Streamlit. 
+It recommends similar movies based on user selection using cosine similarity. 
+Movie posters are fetched dynamically from TMDB API. 
+The project demonstrates data processing, recommendation logic, and a simple web interface.
