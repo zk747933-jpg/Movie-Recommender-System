@@ -3,71 +3,112 @@ import pickle
 import pandas as pd
 import requests
 
+# ---------------- Poster Fetch ----------------
 def fetch_poster(movie_id):
-    response = requests.get(
-        'https://api.themoviedb.org/3/movie/{}?api_key=2ccdd2a7349984d34cc4888cacdf5656&language=en-US'
-        .format(movie_id)
+    try:
+        response = requests.get(
+            f"https://api.themoviedb.org/3/movie/{movie_id}?api_key=2ccdd2a7349984d34cc4888cacdf5656&language=en-US",
+            timeout=10
+        )
+
+        data = response.json()
+
+        if data.get("poster_path"):
+            return "https://image.tmdb.org/t/p/w500" + data["poster_path"]
+
+        return "https://via.placeholder.com/500x750?text=No+Poster"
+
+    except:
+        return "https://via.placeholder.com/500x750?text=Error"
+
+
+# ---------------- Load Data ----------------
+
+try:
+    movies_dict = pickle.load(
+        open("movies_dict.pkl", "rb")
     )
-    data = response.json()
-    print(data)
-    return "https://image.tmdb.org/t/p/w500" + data['poster_path']   # ✅ SYNTAX FIX
+
+    movies = pd.DataFrame(movies_dict)
+
+    similarity = pickle.load(
+        open("similarity.pkl", "rb")
+    )
+
+except Exception as e:
+    st.error(f"Loading Error: {e}")
+    st.stop()
 
 
-movies_dict = pickle.load(open('movies_dict.pkl','rb'))
-movies = pd.DataFrame(movies_dict)
-
-similarity = pickle.load(open('similarity.pkl','rb'))
-
+# ---------------- Recommendation ----------------
 
 def recommend(movie):
-    movie_index = movies[movies['title'] == movie].index[0]
-    distances = similarity[movie_index]
 
-    movies_list = sorted(
-        list(enumerate(distances)),
-        reverse=True,
-        key=lambda x: x[1]
-    )[1:6]
+    movie_index = movies[
+        movies['title'] == movie
+    ].index[0]
 
     recommended_movies = []
-    recommended_movies_posters = []
+    recommended_posters = []
 
-    for i in movies_list:
-        movie_id = movies.iloc[i[0]].movie_id   # ✅ LOGICAL FIX (API needs real movie_id)
+    try:
 
-        recommended_movies.append(movies.iloc[i[0]].title)
-        recommended_movies_posters.append(fetch_poster(movie_id))
+        # optimized neighbors list
+        neighbors = similarity[movie_index]
 
-    return recommended_movies, recommended_movies_posters
+        for idx in neighbors:
+
+            if idx == movie_index:
+                continue
+
+            movie_id = movies.iloc[idx].movie_id
+
+            recommended_movies.append(
+                movies.iloc[idx].title
+            )
+
+            recommended_posters.append(
+                fetch_poster(movie_id)
+            )
+
+            if len(recommended_movies) == 5:
+                break
+
+        return recommended_movies, recommended_posters
+
+    except Exception as e:
+
+        st.error(
+            f"Recommendation Error: {e}"
+        )
+
+        return [], []
 
 
-st.title('Movie Recommander System')
+# ---------------- UI ----------------
 
-selected_movie_name = st.selectbox(
-    'Select a movie',
+st.title("🎬 Movie Recommender System")
+
+selected_movie = st.selectbox(
+    "Select Movie",
     movies['title'].values
 )
 
-if st.button('Recommend'):
-    names, posters = recommend(selected_movie_name)
+if st.button("Recommend"):
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    names, posters = recommend(
+        selected_movie
+    )
 
-    with col1:
-        st.text(names[0])
-        st.image(posters[0])
+    if len(names) > 0:
 
-    with col2:
-        st.text(names[1])
-        st.image(posters[1])
+        cols = st.columns(5)
 
-    with col3:
-        st.text(names[2])
-        st.image(posters[2])
+        for i in range(len(names)):
 
-    with col4:
-        st.text(names[3])
-        st.image(posters[3])
-    with col5:
-        st.text(names[4])
-        st.image(posters[4])
+            with cols[i]:
+                st.text(names[i])
+                st.image(posters[i])
+
+    else:
+        st.warning("No recommendations found")
