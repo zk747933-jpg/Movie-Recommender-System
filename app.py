@@ -23,17 +23,23 @@ def load_neighbors():
 
 
 @st.cache_data(show_spinner=False)
+def _get_poster(movie_id):
+    r = requests.get(
+        f"https://api.themoviedb.org/3/movie/{movie_id}",
+        params={"api_key": st.secrets["TMDB_API_KEY"], "language": "en-US"},
+        timeout=10,
+    )
+    r.raise_for_status()
+    path = r.json().get("poster_path")
+    return "https://image.tmdb.org/t/p/w500" + path if path else None
+
+
 def fetch_poster(movie_id):
     placeholder = "https://via.placeholder.com/500x750?text=No+Poster"
     try:
-        r = requests.get(
-            f"https://api.themoviedb.org/3/movie/{movie_id}",
-            params={"api_key": st.secrets["TMDB_API_KEY"], "language": "en-US"},
-            timeout=10,
-        )
-        path = r.json().get("poster_path")
-        return "https://image.tmdb.org/t/p/w500" + path if path else placeholder
-    except Exception:
+        return _get_poster(movie_id) or placeholder
+    except Exception as e:
+        st.warning(f"Poster error: {e}")
         return placeholder
 
 
