@@ -1,26 +1,25 @@
-import streamlit as st
+import os
 import pickle
-import zipfile
 import numpy as np
 import pandas as pd
 import requests
+import streamlit as st
 
 st.set_page_config(page_title="Movie Recommender", page_icon="🎬", layout="wide")
 st.title("🎬 Movie Recommender System")
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 @st.cache_data
 def load_movies():
-    with open("movies_dict.pkl", "rb") as f:
+    with open(os.path.join(BASE_DIR, "movies_dict.pkl"), "rb") as f:
         return pd.DataFrame(pickle.load(f)).reset_index(drop=True)
 
 
 @st.cache_resource
-def load_similarity():
-    # similarity.pkl 184MB hai (GitHub limit 100MB), isliye zip se padhte hain
-    with zipfile.ZipFile("similarity.zip") as z:
-        with z.open("similarity.pkl") as f:
-            return np.asarray(pickle.load(f))
+def load_neighbors():
+    return np.load(os.path.join(BASE_DIR, "top_neighbors.npy"))
 
 
 @st.cache_data(show_spinner=False)
@@ -39,17 +38,14 @@ def fetch_poster(movie_id):
 
 
 movies = load_movies()
-similarity = load_similarity()
+neighbors = load_neighbors()
 
 
 def recommend(movie):
     pos = int(np.where(movies["title"].values == movie)[0][0])
-    distances = similarity[pos]
-    top = sorted(enumerate(distances), key=lambda x: x[1], reverse=True)[1:6]
-
     names, posters = [], []
-    for i, _ in top:
-        row = movies.iloc[i]
+    for i in neighbors[pos][:5]:
+        row = movies.iloc[int(i)]
         names.append(row["title"])
         posters.append(fetch_poster(int(row["movie_id"])))
     return names, posters
